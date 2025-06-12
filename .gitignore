@@ -129,3 +129,5 @@ kernel/configs/android-*.cfg
 out/
 *.zip
 error.log
+AnyKernel3
+AK3
