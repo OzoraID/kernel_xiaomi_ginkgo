@@ -1,69 +1,126 @@
 #!/bin/bash
-#
-# Compile script for Cuh kernel
-# Copyright (C) 2020-2023 Adithya R.
-# Copyright (C) 2023 Tejas Singh.
+# Edit by NekoTuru & AI
 
-SECONDS=0 # builtin bash timer
-ZIPNAME="Cuh-ginkgo-v1.8-$(TZ=Asia/Kolkata date +"%Y%m%d-%H%M").zip"
-TC_DIR="$HOME/tc/prelude-clang"
-GCC_64_DIR="$HOME/tc/aarch64-linux-android-4.9"
-GCC_32_DIR="$HOME/tc/arm-linux-androideabi-4.9"
-AK3_DIR="AnyKernel3"
-DEFCONFIG="vendor/ginkgo-perf_defconfig"
-export PATH="$TC_DIR/bin:$PATH"
+# Install dependencies
+sudo apt install -y \
+   bc \
+   python2 \
+   ccache
 
-# Build Environment
-sudo -E apt-get -qq update
-sudo -E apt-get -qq install bc python2 python3 python-is-python3
+# Set up kernel directories and tools
+kernel_dir="${PWD}"
+CCACHE=$(command -v ccache)
+objdir="${kernel_dir}/out"
+CLANG_DIR=/workspace/ehhe/clang/bin
+ARCH_DIR=/workspace/ehhe/arm64/bin
+ARM_DIR=/workspace/ehhe/arm/bin
+export CONFIG_FILE="ginkgo_defconfig"
+export ARCH="arm64"
+export KBUILD_BUILD_HOST="Weeaboo"
+export KBUILD_BUILD_USER="NekoTuru"
+export PATH="$CLANG_DIR:$ARCH_DIR:$ARM_DIR:$PATH"
 
-# Check for essentials
-if ! [ -d "${TC_DIR}" ]; then
-echo "Clang not found! Cloning to ${TC_DIR}..."
-if ! git clone --depth=1 https://gitlab.com/jjpprrrr/prelude-clang.git -b master ${TC_DIR}; then
-echo "Cloning failed! Aborting..."
-exit 1
-fi
-fi
+# Function to clean the build environment
+clean_build() {
+    echo ""
+    echo "########### Starting build clean-up ###########"
+    echo ""
 
-if ! [ -d "${GCC_64_DIR}" ]; then
-echo "gcc not found! Cloning to ${GCC_64_DIR}..."
-if ! git clone --depth=1 -b lineage-19.1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git ${GCC_64_DIR}; then
-echo "Cloning failed! Aborting..."
-exit 1
-fi
-fi
+    # Remove old build output if it exists
+    if [ -d "${objdir}" ]; then
+        echo "Removing old build output from ${objdir}..."
+        rm -rf ${objdir}
+        if [ $? -eq 0 ]; then
+            echo "Successfully removed old build output."
+        else
+            echo "Error: Failed to remove build output from ${objdir}."
+            exit 1
+        fi
+    else
+        echo "No previous build output found, skipping removal."
+    fi
 
-if ! [ -d "${GCC_32_DIR}" ]; then
-echo "gcc_32 not found! Cloning to ${GCC_32_DIR}..."
-if ! git clone --depth=1 -b lineage-19.1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9.git ${GCC_32_DIR}; then
-echo "Cloning failed! Aborting..."
-exit 1
-fi
-fi
+    # Run make mrproper only if .config exists
+    if [ -f "${kernel_dir}/.config" ]; then
+        echo "Cleaning kernel configuration files using 'make mrproper'..."
+        make mrproper -C ${kernel_dir}
+        if [ $? -eq 0 ]; then
+            echo "'make mrproper' completed successfully."
+        else
+            echo "Error: 'make mrproper' failed."
+            exit 1
+        fi
+    else
+        echo "No existing .config file found, skipping 'make mrproper'."
+    fi
 
-if [[ $1 = "-r" || $1 = "--regen" ]]; then
-make O=out ARCH=arm64 $DEFCONFIG savedefconfig
-cp out/defconfig arch/arm64/configs/$DEFCONFIG
-exit
-fi
+    echo ""
+    echo "########### Build clean-up completed ###########"
+    echo ""
+}
 
-mkdir -p out
-make O=out ARCH=arm64 $DEFCONFIG
+# Function to generate defconfig
+make_defconfig() {
+    START=$(date +"%s")
+    echo ""
+    echo "########### Generating Defconfig ############"
+    make -s ARCH=${ARCH} O=${objdir} ${CONFIG_FILE} -j$(nproc --all)
+    echo "Defconfig generation completed."
+    echo ""
+}
 
-echo -e "\nStarting compilation...\n"
-make -j$(nproc --all) O=out ARCH=arm64 CC=clang LD=ld.lld AR=llvm-ar AS=llvm-as NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=$GCC_64_DIR/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=$GCC_32_DIR/bin/arm-linux-androideabi- CLANG_TRIPLE=aarch64-linux-gnu- Image.gz-dtb dtbo.img
+# Function to compile kernel
+compile() {
+    cd ${kernel_dir}
+    echo ""
+    echo "######### Compiling kernel #########"
+    echo ""
+    make -j$(nproc --all) \
+    O=${objdir} \
+    ARCH=arm64 \
+    CC=clang \
+    LD=ld.lld \
+    AR=llvm-ar \
+    AS=llvm-as \
+    NM=llvm-nm \
+    OBJCOPY=llvm-objcopy \
+    OBJDUMP=llvm-objdump \
+    STRIP=llvm-strip \
+    CROSS_COMPILE=$ARCH_DIR/bin/aarch64-linux-android- \
+    CROSS_COMPILE_ARM32=$ARM_DIR/bin/arm-linux-androideabi- \
+    CLANG_TRIPLE=aarch64-linux-gnu- \
+    Image.gz-dtb \
+    dtbo.img \
+    CC="${CCACHE} clang" \
+    $1
+    echo ""
+}
 
-if [ -f "out/arch/arm64/boot/Image.gz-dtb" ] && [ -f "out/arch/arm64/boot/dtbo.img" ]; then
-echo -e "\nKernel compiled succesfully! Zipping up...\n"
-fi
-cp out/arch/arm64/boot/Image.gz-dtb AnyKernel3
-cp out/arch/arm64/boot/dtbo.img AnyKernel3
-rm -f *zip
-cd AnyKernel3
-git checkout master &> /dev/null
-zip -r9 "../$ZIPNAME" * -x '*.git*' README.md *placeholder
-cd ..
-echo -e "\nCompleted in $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s) !"
+# Function to check compilation completion
+completion() {
+    COMPILED_IMAGE=${objdir}/arch/arm64/boot/Image.gz-dtb
+    COMPILED_DTBO=${objdir}/arch/arm64/boot/dtbo.img
 
-exit
+    # Check if compiled files exist
+    if [[ -f ${COMPILED_IMAGE} && -f ${COMPILED_DTBO} ]]; then
+        echo ""
+        echo "############################################"
+        echo "####### Kernel Build Successful! ##########"
+        echo "############################################"
+        echo ""
+    else
+        echo ""
+        echo "############################################"
+        echo "##         Kernel Build Failed!           ##"
+        echo "## Please check the build log for errors. ##"
+        echo "############################################"
+        echo ""
+        exit 1
+    fi
+}
+
+# Clean the build environment, generate defconfig, compile kernel, and check result
+clean_build
+make_defconfig
+compile
+completion
