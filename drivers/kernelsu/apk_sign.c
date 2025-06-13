@@ -204,8 +204,7 @@ static __always_inline bool check_v2_signature(char *path,
 	if (IS_ERR(fp)) {
 		pr_err("open %s error.\n", path);
 		return false;
-	} else
-		pr_info("%s: processing %s \n", __func__, path);
+	}
 
 	// disable inotify for this file
 	fp->f_mode |= FMODE_NONOTIFY;
