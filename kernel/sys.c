@@ -1172,12 +1172,13 @@ static void override_custom_release(char __user *release, size_t len)
 	if (strstr(buf, "me.weishu.kernelsu")) {
 		char easteregg[50];
 		strcpy(easteregg, UTS_RELEASE);
-		strcat(easteregg, " +moefsニャン");
+		strcat(easteregg, " +umount +susfs ඞ");
 		copy_to_user(release, easteregg,
 			       strlen(easteregg) + 1);
 	}
 #endif	
 	kfree(buf);
+
 }
 #endif
 
