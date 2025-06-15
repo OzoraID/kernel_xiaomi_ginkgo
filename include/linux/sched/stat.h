@@ -42,12 +42,7 @@ extern u64 sched_lpm_disallowed_time(int cpu);
 static inline void sched_update_hyst_times(void)
 {
 }
-static inline u64 sched_lpm_disallowed_time(int cpu)
-{
-	return 0;
-}
 #endif
-
 static inline int sched_info_on(void)
 {
 #ifdef CONFIG_SCHEDSTATS
