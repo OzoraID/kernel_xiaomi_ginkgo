@@ -11,7 +11,7 @@ jobs:
     steps:
        - name: Building Kernel.
          run: |
-             git clone --depth 1 https://github.com/LeanxModulostk/Lightning-Kernel.git -b plus kernel
+             git clone --depth 1 https://github.com/Secret1603/kernel_xiaomi_ginkgo.git -b ryzen kernel
              cd kernel
              chmod 777 build.sh
              ./build.sh
