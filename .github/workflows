@@ -1,1 +1,22 @@
 
+name: Compile Kernel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+       - name: Building Kernel.
+         run: |
+             git clone --depth 1 https://github.com/LeanxModulostk/Lightning-Kernel.git -b plus kernel
+             cd kernel
+             chmod 777 build.sh
+             ./build.sh
+
+       - name: Uploading ZIP.
+         run: |
+             cd kernel
+             curl -T *.zip -u :230a8c9f-2889-4ee4-8b4a-c18ab8e81a11 https://pixeldrain.com/api/file/ && echo
